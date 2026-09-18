@@ -1,0 +1,46 @@
+name: rebuild
+
+# 上游 eternity4719/HowToLiveBetter 基本每天都有新条目，
+# 这里定时把上游拉下来重新生成 index.html，有变化才提交。
+on:
+  schedule:
+    # UTC 22:00 = 北京时间次日 06:00
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Clone upstream book
+        run: git clone --depth 1 https://github.com/eternity4719/HowToLiveBetter.git "$RUNNER_TEMP/upstream"
+
+      - name: Build index.html
+        run: python build.py all -o index.html --repo "$RUNNER_TEMP/upstream"
+
+      - name: Commit if changed
+        run: |
+          set -e
+          if git diff --quiet -- index.html; then
+            echo "上游没变，index.html 无需更新"
+            exit 0
+          fi
+          UPSTREAM_REV="$(git -C "$RUNNER_TEMP/upstream" rev-parse --short HEAD)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "chore: 按上游 ${UPSTREAM_REV} 重新生成 index.html"
+          git push
