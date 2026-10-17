@@ -586,8 +586,19 @@ def main():
             '<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1b1b1f">'
             '<meta name="description" content="《高性价比人生指南》%s，共 %d 条建议，'
             '每条标注成本、收益、证据等级（A/B/C）与原始文献链接。单文件、零依赖、可离线阅读。">'
+            '<meta property="og:type" content="website">'
+            '<meta property="og:title" content="高性价比人生指南 · %s">'
+            '<meta property="og:description" content="《高性价比人生指南》%s，共 %d 条建议，每条标注成本、收益、证据等级（A/B/C）与原始文献链接。单文件、零依赖、可离线阅读。">'
+            '<meta property="og:image" content="https://cdyforever.github.io/how-to-live-better/og-image.png">'
+            '<meta property="og:image:width" content="1200">'
+            '<meta property="og:image:height" content="630">'
+            '<meta property="og:url" content="https://cdyforever.github.io/how-to-live-better/">'
+            '<meta name="twitter:card" content="summary_large_image">'
+            '<meta name="twitter:title" content="高性价比人生指南 · %s">'
+            '<meta name="twitter:description" content="《高性价比人生指南》%s，共 %d 条建议，每条标注成本、收益、证据等级（A/B/C）与原始文献链接。">'
+            '<meta name="twitter:image" content="https://cdyforever.github.io/how-to-live-better/og-image.png">'
             '<title>高性价比人生指南 · %s</title><style>%s</style></head><body>'
-            % (SCOPE, total, SCOPE, CSS))
+            % (SCOPE, total, SCOPE, SCOPE, total, SCOPE, SCOPE, total, SCOPE, CSS))
 
     bar = ('<header class="bar"><h1>高性价比人生指南<small>%s</small></h1>'
            '<select class="jump" id="jump" aria-label="跳转到某一节">%s</select>'
