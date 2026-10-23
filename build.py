@@ -233,10 +233,21 @@ strong{font-weight:600;color:var(--t1)}
 .shell{display:flex;align-items:flex-start}
 .toc{position:sticky;top:var(--bar);flex:none;width:var(--side);height:calc(100vh - var(--bar));
   overflow-y:auto;padding:18px 14px 80px 18px;background:var(--bg-alt);border-right:1px solid var(--divider)}
-.toc .gt{font-size:13px;font-weight:600;margin:0 0 6px;color:var(--t1);display:flex;justify-content:space-between;align-items:baseline}
-.toc .gt small{font-weight:400;font-size:11px;color:var(--t3)}
+/* 目录里每一节是一个 details：默认全部折叠，滚动到某节时 JS 自动展开那一节 */
+.toc .toc-tools{position:sticky;top:0;z-index:2;padding:0 0 10px;margin-bottom:12px;
+  background:var(--bg-alt);border-bottom:1px solid var(--divider)}
+.toc .toc-tools .btn{height:26px;padding:0 10px;font-size:11.5px}
 .toc .grp{padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--divider)}
 .toc .grp:last-child{border-bottom:0;margin-bottom:0}
+.toc .gt{font-size:13px;font-weight:600;color:var(--t1);display:flex;align-items:baseline;gap:6px;
+  cursor:pointer;list-style:none;user-select:none;margin:0 -4px 6px;padding:2px 4px;border-radius:6px}
+.toc .gt:hover{background:var(--bg-elv)}
+.toc .gt:focus-visible{outline:2px solid var(--brand-1);outline-offset:1px}
+.toc summary::-webkit-details-marker{display:none}
+.toc .gt small{font-weight:400;font-size:11px;color:var(--t3);margin-left:auto;flex:none}
+.toc .gt::before{content:"▸";color:var(--t3);flex:none;font-size:11px}
+.toc details[open] > .gt{color:var(--brand-1)}
+.toc details[open] > .gt::before{content:"▾";color:var(--brand-1)}
 .toc a{display:flex;gap:6px;align-items:baseline;padding:3px 6px;border-radius:6px;font-size:12.5px;
   line-height:1.5;color:var(--t2)}
 .toc a:hover{background:var(--bg-elv);color:var(--t1);text-decoration:none}
@@ -405,6 +416,41 @@ const themeBtn=document.getElementById('theme');
 const topBtn=document.getElementById('top');
 let grade=null, plainOnly=false;
 
+/* 目录折叠：默认全部折叠。滚动到某一节时自动展开那一节，并收起之前自动展开的节，
+   目录不会越滚越长。用户自己点开的节带 data-auto=0，不会被自动收起。
+   全部展开/收起按钮把每节都标成用户接管（data-auto=0），之后滚动不再自动收起。 */
+const tocGroups=[...document.querySelectorAll('.toc details.grp')];
+const tocBySec={};
+tocGroups.forEach(g=>{ tocBySec[g.dataset.sec]=g; });
+const tAll=document.getElementById('t-all');
+let autoGroup=null;
+function openGroup(g){
+  if(!g || g===autoGroup) return;
+  /* 要收起"所有"自动展开的节，不能只收 autoGroup 指的那一个：
+     用户点开任意节时 click 处理会把 autoGroup 清空，那一节就再没人负责收，
+     滚动读下去目录里会一直多挂几个读过的节。用户点开的节 data-auto 已被清掉，不受影响。 */
+  tocGroups.forEach(x=>{ if(x!==g && x.dataset.auto==='1'){ x.open=false; x.dataset.auto=''; } });
+  if(!g.open){ g.open=true; g.dataset.auto='1'; }
+  autoGroup=g;
+}
+function syncTAll(){
+  if(!tAll) return;
+  const all=tocGroups.length>0 && tocGroups.every(g=>g.open);
+  tAll.textContent=all?'全部收起':'全部展开';
+  tAll.setAttribute('aria-pressed',String(all));
+}
+tocGroups.forEach(g=>{
+  g.addEventListener('toggle',syncTAll);
+  g.querySelector('summary').addEventListener('click',()=>{ g.dataset.auto=''; autoGroup=null; });
+});
+if(tAll) tAll.onclick=()=>{
+  const all=tocGroups.every(g=>g.open);
+  tocGroups.forEach(g=>{ g.open=!all; g.dataset.auto=''; });
+  autoGroup=null;
+  syncTAll();
+};
+syncTAll();
+
 /* 顶栏高度会随换行变化，交给 JS 实测，锚点跳转才不会被顶栏盖住 */
 function syncBar(){
   const h=Math.round(bar.getBoundingClientRect().height);
@@ -469,6 +515,15 @@ function apply(){
     const el=document.getElementById(a.getAttribute('href').slice(1));
     a.classList.toggle('hidden',!el||el.classList.contains('hidden'));
   });
+  /* 目录联动：一条都没命中的节整节隐藏；有命中的节展开，否则搜到的东西藏在折叠里看不见。
+     搜索词清空后，把这次为搜索展开的节收回去（用户自己点开的保持打开）。 */
+  tocGroups.forEach(g=>{
+    const vis=g.querySelectorAll('a:not(.hidden)').length;
+    g.classList.toggle('hidden',vis===0);
+    if(term){ if(vis>0 && !g.open){ g.open=true; g.dataset.auto='1'; } }
+    else if(g.dataset.auto==='1'){ g.open=false; g.dataset.auto=''; }
+  });
+  autoGroup=null;
 }
 let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,90);});
@@ -530,8 +585,11 @@ syncBar();
 const links=[...document.querySelectorAll('.toc a')];
 const io=new IntersectionObserver(es=>{
   es.forEach(e=>{ if(e.isIntersecting){
-    if(e.target.classList.contains('card'))
+    if(e.target.classList.contains('card')){
       links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));
+      /* 卡片 id 形如 s12-3 → 取节号 12，展开目录里对应的那一节 */
+      openGroup(tocBySec[e.target.id.split('-')[0].slice(1)]);
+    }
     else if(jump && e.target.tagName==='SECTION')
       jump.value=e.target.id;
   }});
@@ -567,8 +625,10 @@ def main():
                          '<i>%d</i><span>%s</span></a>'
                          % (n, e["no"], html.escape(e["title"], quote=True),
                             RATIO_ORDER.get(r, 2), e["no"], html.escape(short)))
-        sec_toc.append('<div class="grp"><div class="gt">%s<small>%d 条</small></div>%s</div>'
-                       % (inline(title), len(entries), "".join(links)))
+        # 每一节用 details：默认折叠，滚动到该节时由 JS 展开（见 JS 里的 openGroup）
+        sec_toc.append('<details class="grp" data-sec="%d"><summary class="gt">%s<small>%d 条</small></summary>'
+                       '<div class="links">%s</div></details>'
+                       % (n, inline(title), len(entries), "".join(links)))
         sec_html.append(
             '<section id="sec%d"><div class="sec-h"><h2>%s</h2>'
             '<span class="meta">%d 条</span></div>%s%s</section>'
@@ -616,11 +676,13 @@ def main():
               '由 build.py 生成。</footer>'
               % (src_line, total, grade_cnt["A"], grade_cnt["B"], grade_cnt["C"], link_total))
 
+    toc_tools = ('<div class="toc-tools"><button class="btn" id="t-all" aria-pressed="false">'
+                 '全部展开</button></div>')
     shell = ('<div class="shell"><aside class="toc">%s</aside><main>%s'
              '<div class="empty hidden" id="empty">没有匹配的条目</div>%s'
              '</main></div>'
              '<button id="top" title="回到顶部" aria-label="回到顶部">↑</button>'
-             % ("".join(sec_toc), "".join(sec_html), footer))
+             % (toc_tools + "".join(sec_toc), "".join(sec_html), footer))
 
     # 注意：JS 字符串只含脚本体，<script> 开合标签在这里拼。
     # 之前漏了开标签，导致整段 JS 被当纯文本渲染在页面底部、脚本从未执行。
