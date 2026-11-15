@@ -1,6 +1,6 @@
 # 高性价比人生指南 · 在线阅读页
 
-一个单文件 HTML 阅读页，把开源书《高性价比人生指南》的全部 32 节、528 条建议
+一个单文件 HTML 阅读页，把开源书《高性价比人生指南》的全部 33 节、608 条建议
 渲染成可搜索的页面。手机上打开就能看，不用装任何东西。
 
 **在线阅读：** https://cdyforever.github.io/how-to-live-better/
@@ -35,7 +35,7 @@
 # 需要先有一份上游仓库的本地克隆
 git clone --depth 1 https://github.com/eternity4719/HowToLiveBetter.git /tmp/upstream
 
-# 全部 32 节
+# 全部 33 节
 python build.py all -o index.html --repo /tmp/upstream
 
 # 只做某几节
